@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sát Thần Đinh Lễ - Full Game (Giới Hạn 5 Tướng)</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: #1a1a1a; color: #fff; text-align: center; margin: 0; padding: 10px; }
+        .screen { display: none; max-width: 800px; margin: 0 auto; background: #2a2a2a; padding: 20px; border-radius: 10px; border: 2px solid #444; position: relative; overflow: hidden; }
+        .active { display: block; }
+        
+        #screenLobby {
+            background: linear-gradient(rgba(0, 0, 0, 0.65), rgba(0, 0, 0, 0.65)), 
+                        url('dinhle.jpg') center/cover no-repeat;
+            border: 2px solid #00cec9;
+            box-shadow: 0 0 15px rgba(0, 206, 201, 0.4);
+        }
+
+        .top-bar { display: flex; justify-content: space-around; align-items: center; background: #333; padding: 10px; border-radius: 5px; margin-bottom: 15px; font-weight: bold; flex-wrap: wrap; gap: 8px; }
+        .ruby { color: #ff4757; } .gold { color: #ffa502; }
+        
+        .nav-btn { padding: 10px 20px; font-size: 16px; margin: 5px; cursor: pointer; background: #2ed573; border: none; color: white; border-radius: 5px; font-weight: bold; text-shadow: 1px 1px 2px #000; }
+        .nav-btn:hover { background: #26af5f; }
+        .btn-red { background: #ff4757; } .btn-red:hover { background: #ff6b81; }
+        .btn-music { background: #ff6b81; color: #fff; padding: 6px 15px; font-size: 14px; border-radius: 20px; }
+        .btn-guild { background: #3742fa; } 
+        .btn-pvp { background: #ff4757; } 
+        .btn-boss { background: #9b59b6; } 
+        .btn-locked { background: #555 !important; cursor: not-allowed; }
+        
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 15px; }
+        .card { background: #333; border: 2px solid #555; border-radius: 8px; padding: 10px; text-align: center; }
+        .card.locked { opacity: 0.5; filter: grayscale(1); }
+        .card.boss-stage { border-color: #ff4757; background: #3d1e24; }
+
+        .ext-log {
+            background: #1e1e2f;
+            padding: 10px;
+            border-radius: 6px;
+            margin-top: 15px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 13px;
+            text-align: left;
+            border: 1px solid #444;
+        }
+
+        .chat-box-container {
+            background: #111;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 20px;
+            text-align: left;
+        }
+        .chat-messages {
+            height: 120px;
+            overflow-y: auto;
+            font-size: 13px;
+            font-family: monospace;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+        }
+        .chat-input-row { display: flex; gap: 5px; }
+        .chat-input-row input { flex: 1; padding: 8px; border-radius: 4px; border: 1px solid #666; background: #222; color: #fff; }
+
+        canvas { background: #87CEEB; border: 3px solid #fff; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <audio id="bgMusic" loop preload="auto">
+        <source src="DEX_VAO_LINK_FILE_MP3_TRUC_TIEP_O_DAY" type="audio/mpeg">
+    </audio>
+
+    <div id="screenAuth" class="screen active" style="max-width: 450px; margin-top: 50px;">
+        <h2 style="color: #00cec9;">🎮 ĐĂNG NHẬP / ĐĂNG KÝ</h2>
+        <p style="color: #bbb; font-size: 13px;">Nhập tên tài khoản của bạn để tham gia thế giới Sát Thần Đinh Lễ[cite: 1]</p>
+        <input type="text" id="authUsername" placeholder="Tên tài khoản..." style="width: 100%; padding: 12px; margin: 10px 0 5px 0; border-radius: 5px; background: #222; color: #fff; border: 1px solid #555;"><br>
+        <input type="password" id="authPassword" placeholder="Mật khẩu..." style="width: 100%; padding: 12px; margin: 5px 0 10px 0; border-radius: 5px; background: #222; color: #fff; border: 1px solid #555;"><br>
+        <button class="nav-btn" style="width: 100%; margin-top: 10px;" onclick="handleLogin()">VÀO GAME NGAY</button>
+    </div>
+
+    <div id="gameMainWrapper" style="display: none;">
+        <div class="top-bar">
+            <div>Tài khoản: <span id="resAccountName" style="color:#00cec9;">Khách</span> [<span id="resRoleDisplay" style="color:#ffa502;">Thành Viên</span>]</div>
+            <div>Vàng: <span id="resGold" class="gold">1000</span> 🪙</div>
+            <div>Ruby: <span id="resRuby" class="ruby">100</span> 💎</div>
+            <div>Lực Chiến: <span id="resPower" style="color: #00cec9;">100</span> ⚔️</div>
+            <button id="musicBtn" class="nav-btn btn-music" onclick="toggleMusic()">▶️ Bật Nhạc</button>
+        </div>
+
+        <div id="screenLobby" class="screen active">
+            <h1 style="text-shadow: 2px 2px 4px #000; color: #00cec9;">⚔️ SẢNH CHÍNH SÁT THẦN ĐINH LỄ ⚔️[cite: 1]</h1>
+            <p style="color: #dfe6e9; font-size: 14px; text-shadow: 1px 1px 2px #000;">🎵 Nhạc nền: <b>Shape of You (Sped Up Version)</b></p>
+            
+            <div style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px; margin-bottom: 15px;">
+                <input type="text" id="inputGiftcode" placeholder="Nhập mã code 12 số..." style="padding: 8px; width: 200px; background: #222; color: #fff; border: 1px solid #555; border-radius: 4px;">
+                <button class="nav-btn" style="margin: 0; padding: 8px 15px;" onclick="redeemGiftcode()">🎁 Đổi Code</button>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <button class="nav-btn btn-red" style="font-size: 18px; padding: 12px 25px;" onclick="switchScreen('Stage')">⚔️ CHỌN MÀN CHƠI (1-300 & HARD)</button><br><br>
+                <button class="nav-btn" onclick="switchScreen('Hero')">🛠️ Nâng Cấp Tướng & Căn Cứ</button>
+                <button class="nav-btn" onclick="switchScreen('Gacha')">🔮 Vòng Quay Gacha</button><br><br>
+                <button class="nav-btn btn-guild" onclick="switchScreen('Guild')">🛡️ Bang Hội</button>
+                <button class="nav-btn btn-pvp" onclick="switchScreen('PvP')">⚔️ Đấu Trường PvP Real-Time</button>
+                <button class="nav-btn btn-boss" onclick="switchScreen('WorldBoss')">🐉 Boss Thế Giới</button><br><br>
+                <button class="nav-btn btn-red" style="font-size: 13px; padding: 6px 12px;" onclick="resetGameData()">🗑️ Xóa Dữ Liệu / Chơi Lại</button>
+            </div>
+
+            <div class="chat-box-container">
+                <div id="chatMessages" class="chat-messages">
+                    <span style="color:#2ed573;">[Hệ thống]: Chào mừng bạn đến với thế giới game! Giới hạn nhân vật xuất trận tối đa là 5[cite: 1].</span><br>
+                </div>
+                <div class="chat-input-row">
+                    <input type="text" id="chatInput" placeholder="Nhập tin nhắn..." onkeypress="handleChatKeyPress(event)">
+                    <button class="nav-btn" style="margin:0; padding:5px 15px;" onclick="sendChatMessage()">Gửi</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="screenStage" class="screen">
+            <h2>🗺️ CHỌN MÀN CHƠI</h2>
+            <div id="stageList" class="grid" style="max-height: 450px; overflow-y: auto; padding-right: 5px;"></div>
+            <br>
+            <button class="nav-btn" onclick="switchScreen('Lobby')">⬅️ Về Sảnh</button>
+        </div>
+
+        <div id="screenHero" class="screen">
+            <h2>🏰 NÂNG CẤP CĂN CỨ</h2>
+            <div id="baseUpgradeList" class="grid"></div>
+
+            <h2 style="margin-top: 25px;">🦸 QUẢN LÝ & NÂNG CẤP TƯỚNG</h2>
+            <div id="heroList" class="grid"></div>
+            <br>
+            <button class="nav-btn" onclick="switchScreen('Lobby')">⬅️ Về Sảnh</button>
+        </div>
+
+        <div id="screenGacha" class="screen">
+            <h2>🔮 QUAY TƯỚNG CAO CẤP</h2>
+            <p style="font-size: 13px; color: #aaa;">(Nhân vật đặc quyền chỉ nhận qua lệnh admin)</p>
+            <div style="margin: 30px 0;">
+                <button class="nav-btn btn-red" onclick="rollGacha()">🎲 Quay 1 Lần (50 Ruby)</button>
+            </div>
+            <div id="gachaResult" style="min-height: 50px; font-size: 18px; font-weight: bold; color: #eccc68;"></div>
+            <button class="nav-btn" onclick="switchScreen('Lobby')">⬅️ Về Sảnh</button>
+        </div>
+
+        <div id="screenGuild" class="screen">
+            <h2>🛡️ HỆ THỐNG BANG HỘI</h2>
+            <div id="guild-info-box" style="margin-top: 20px;"></div>
+            <br><br>
+            <button class="nav-btn" onclick="switchScreen('Lobby')">⬅️ Về Sảnh</button>
+        </div>
+
+        <div id="screenPvP" class="screen">
+            <h2>⚔️ ĐẤU TRƯỜNG PVP 2 NGƯỜI CHƠI (REAL-TIME)</h2>
+            <p>Tạo phòng đấu hoặc nhập mã phòng của người chơi khác để thi đấu trực tiếp 1v1:</p>
+            <div style="background:#333; padding:15px; border-radius:8px; margin-bottom: 15px;">
+                <button class="nav-btn btn-pvp" onclick="createPvPRoom()">🏠 Tạo Phòng Đấu Trực Tiếp</button><br><br>
+                <input type="text" id="inputRoomCode" placeholder="Nhập mã phòng 4 chữ số..." style="padding:10px; width:50%; background:#222; color:#fff; border:1px solid #555;">
+                <button class="nav-btn" onclick="joinPvPRoom()">🔗 Vào Phòng Đối Thủ</button>
+            </div>
+            <div class="ext-log" id="pvp-log">[PvP Network]: Đang chờ kết nối phòng mạng trực tiếp giữa 2 người chơi...</div>
+            <br>
+            <button class="nav-btn" onclick="switchScreen('Lobby')">⬅️ Về Sảnh</button>
+        </div>
+
+        <div id="screenWorldBoss" class="screen">
+            <h2>🐉 BOSS THẾ GIỚI: HẮC LONG ĐẠI ĐẾ</h2>
+            <div style="background:#333; padding:20px; border-radius:8px; margin-top: 20px;">
+                <p>HP Boss: <span id="boss-hp" style="color:#ff4757; font-weight:bold;">1,000,000,000 / 1,000,000,000</span></p>
+                <progress id="boss-hp-bar" value="100" max="100" style="width:100%; height:25px;"></progress>
+                <button class="nav-btn btn-red" id="btn-attack-boss" style="width:100%; margin-top:20px; font-size: 18px;" onclick="attackWorldBoss()">⚔️ Tấn Công Boss Thế Giới (10% Sức Mạnh)</button>
+            </div>
+            <div class="ext-log" id="boss-log">Chưa có hoạt động tấn công boss...</div>
+            <br>
+            <button class="nav-btn" onclick="switchScreen('Lobby')">⬅️ Về Sảnh</button>
+        </div>
+
+        <div id="screenGame" class="screen">
+            <h3>Trận đấu: <span id="currentStageTitle" style="color:#ffa502">1</span> (Tối đa 5 tướng trên sân)[cite: 1]</h3>
+            <div>Mana: <span id="manaText" style="color: yellow; font-weight: bold;">0</span> / <span id="maxManaText">100</span> | Đang gọi: <span id="unitCountText" style="color: #00cec9; font-weight: bold;">0</span> / 5[cite: 1]</div>
+            <canvas id="gameCanvas" width="800" height="300"></canvas>
+            <div id="spawnButtons" class="controls" style="margin-top: 10px;"></div>
+            <br>
+            <button class="nav-btn btn-red" onclick="endGame(false)">🏳️ Đầu Hàng</button>
+        </div>
+    </div>
+
+    <script>
+        let player = { 
+            name: "Hiệp Sĩ Sát Thần",[cite: 1]
+            gold: 1000, 
+            ruby: 100, 
+            power: 120,
+            maxStageUnlocked: 1,
+            maxHardStageUnlocked: 1,
+            hardModeCompleted: false,
+            isHardModeActive: false,
+            manaSpeedLvl: 1,
+            baseHPBoostLvl: 1,
+            maxManaLimitLvl: 1,
+            guild: null,
+            roles: ["Thành Viên"]
+        };
+        let currentSelectedStage = 1;
+        let isPlayingHardMode = false;
+        let isAdminUnlocked = false; 
+        let isPvPMode = false;
+        let pvpRoomCode = null;
+        let pvpOpponentName = "Người Chơi Khác";
+        let giftcodes = {};
+
+        const SAVE_KEY = "SAT_THAN_DINH_LE_SAVE_DATA_V10";
+
+        function saveGameData() {
+            const heroesData = {};
+            for (let id in HEROES) {
+                heroesData[id] = { unlocked: HEROES[id].unlocked, level: HEROES[id].level };
+            }
+            localStorage.setItem(SAVE_KEY, JSON.stringify({ player, heroes: heroesData, isAdminUnlocked, giftcodes }));
+        }
+
+        function loadGameData() {
+            const savedDataStr = localStorage.getItem(SAVE_KEY);
+            if (!savedDataStr) return false;
+            try {
+                const savedData = JSON.parse(savedDataStr);
+                if (savedData.player) player = { ...player, ...savedData.player };
+                if (!player.roles) player.roles = ["Thành Viên"];
+                if (savedData.heroes) {
+                    for (let id in savedData.heroes) {
+                        if (HEROES[id]) { HEROES[id].unlocked = savedData.heroes[id].unlocked; HEROES[id].level = savedData.heroes[id].level; }
+                    }
+                }
+                if (typeof savedData.isAdminUnlocked !== 'undefined') isAdminUnlocked = savedData.isAdminUnlocked;
+                if (savedData.giftcodes) giftcodes = savedData.giftcodes;
+                return true;
+            } catch (e) { return false; }
+        }
+
+        function resetGameData() {
+            if (confirm("Bạn có chắc chắn muốn xóa toàn bộ tiến trình chơi để chơi lại từ đầu không?")) {
+                localStorage.removeItem(SAVE_KEY);
+                location.reload();
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('resGold').innerText = player.gold;
+            document.getElementById('resRuby').innerText = player.ruby;
+            document.getElementById('resPower').innerText = player.power;
+            document.getElementById('resRoleDisplay').innerText = player.roles.join(', ');
+        }
+
+        function handleLogin() {
+            const nameInput = document.getElementById('authUsername').value.trim();
+            const passInput = document.getElementById('authPassword').value.trim();
+            if (!nameInput || !passInput) return alert("Vui lòng nhập tài khoản và mật khẩu!");
+            loadGameData();
+            if (!player.name || player.name === "Hiệp Sĩ Sát Thần" || nameInput !== "Hiệp Sĩ Sát Thần") {[cite: 1]
+                player.name = nameInput;
+            }
+            document.getElementById('resAccountName').innerHTML = player.name;
+            document.getElementById('screenAuth').style.display = 'none';
+            document.getElementById('gameMainWrapper').style.display = 'block';
+            updateUI();
+            switchScreen('Lobby');
+            saveGameData();
+        }
+
+        function handleChatKeyPress(event) {
+            if (event.key === 'Enter') sendChatMessage();
+        }
+
+        function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            const chatBox = document.getElementById('chatMessages');
+
+            if (msg.startsWith('/')) {
+                const lowerMsg = msg.toLowerCase().trim();
+                const parts = msg.split(' ');
+                const cmd = parts[1] ? parts[1].toLowerCase() : ''; 
+                
+                if (lowerMsg.startsWith('/send ')) {
+                    const targetName = parts[2] ? parts[2].trim() : '';
+
+                    if (!targetName) {
+                        alert("Vui lòng nhập tên người nhận! Cú pháp: /send [loại] [tên] [giá_trị]");
+                    } else if (targetName.toLowerCase() === player.name.toLowerCase()) {[cite: 1]
+                        alert("Bạn không thể tự gửi cho chính mình!");
+                    } else {
+                        if (cmd === 'gold') {
+                            const amount = parseInt(parts[3]) || 0;
+                            if (amount <= 0 || player.gold < amount) {
+                                alert("Số lượng vàng không hợp lệ hoặc bạn không đủ vàng!");
+                            } else {
+                                player.gold -= amount;
+                                updateUI();
+                                saveGameData();
+                                chatBox.innerHTML += `<div style="color:#ffa502;">[Hệ thống]: Bạn đã chuyển ${amount} Vàng cho [${targetName}]!</div>`;
+                            }
+                        }
+                        else if (cmd === 'ruby') {
+                            const amount = parseInt(parts[3]) || 0;
+                            if (amount <= 0 || player.ruby < amount) {
+                                alert("Số lượng Ruby không hợp lệ hoặc bạn không đủ Ruby!");
+                            } else {
+                                player.ruby -= amount;
+                                updateUI();
+                                saveGameData();
+                                chatBox.innerHTML += `<div style="color:#ff4757;">[Hệ thống]: Bạn đã chuyển ${amount} Ruby cho [${targetName}]!</div>`;
+                            }
+                        }
+                        else if (cmd === 'role') {
+                            const roleName = parts.slice(3).join(' ').trim();
+                            if (!roleName) {
+                                alert("Vui lòng nhập tên role muốn cấp!");
+                            } else {
+                                chatBox.innerHTML += `<div style="color:#2ed573;">[Hệ thống]: Đã cấp Role [${roleName}] cho người chơi [${targetName}] thành công!</div>`;
+                            }
+                        }
+                        else if (cmd === 'nv') {
+                            const heroKey = parts[3] ? parts[3].toLowerCase() : '';
+                            if (!HEROES[heroKey]) {
+                                alert("Mã nhân vật không tồn tại! (Ví dụ: swordsman, archer, gojo, ...)");
+                            } else {
+                                HEROES[heroKey].unlocked = true;
+                                saveGameData();
+                                if (typeof renderHeroList === 'function' && document.getElementById('screenHero').classList.contains('active')) {
+                                    renderHeroList();
+                                }
+                                chatBox.innerHTML += `<div style="color:#00cec9;">[Hệ thống]: Đã mở khóa nhân vật [${HEROES[heroKey].name}] cho [${targetName}]!</div>`;
+                            }
+                        } else {
+                            alert("Loại tài nguyên hoặc tính năng gửi không hỗ trợ! Sử dụng: gold, ruby, role, nv.");
+                        }
+                    }
+                    input.value = '';
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                    return;
+                }
+
+                if (lowerMsg === '/???') {
+                    isAdminUnlocked = true;
+                    saveGameData();
+                    alert("Đã bật thành công Admin Mode!");
+                } 
+                else if (lowerMsg === '/dinhle') {[cite: 1]
+                    if (!isAdminUnlocked) {
+                        alert("Bạn cần kích hoạt Admin Mode bằng lệnh /??? trước!");
+                    } else {
+                        HEROES.satthandinhle.unlocked = true;[cite: 1]
+                        if (typeof renderHeroList === 'function' && document.getElementById('screenHero').classList.contains('active')) {
+                            renderHeroList();
+                        }
+                        saveGameData();
+                        alert("Đã mở khóa nhân vật Sát Thần Đinh Lễ độc quyền cho Admin thành công!");[cite: 1]
+                    }
+                }
+                else if (lowerMsg.startsWith('/admin ')) {
+                    if (!isAdminUnlocked) {
+                        alert("You need admin mode!");
+                    } else {
+                        const targetPlayer = msg.substring(7).trim();
+                        if (targetPlayer) {
+                            alert(`Đã chuyển quyền quản trị tới tài khoản [${targetPlayer}]!`);
+                        }
+                    }
+                }
+                else if (lowerMsg.startsWith('/ban ')) {
+                    if (!isAdminUnlocked) {
+                        alert("You need admin mode!");
+                    } else {
+                        const targetPlayer = msg.substring(5).trim();
+                        if (targetPlayer) {
+                            alert(`Đã BAN người chơi [${targetPlayer}] thành công!`);
+                        }
+                    }
+                }
+                else if (lowerMsg === '/full map') {
+                    if (isAdminUnlocked) {
+                        player.maxStageUnlocked = 300;
+                        player.maxHardStageUnlocked = 200;
+                        player.hardModeCompleted = true;
+                        updateUI();
+                        saveGameData();
+                        alert("Đã mở khóa toàn bộ map!");
+                    } else { alert("Cần lệnh /???"); }
+                } 
+                else if (lowerMsg === '/full char') {
+                    if (isAdminUnlocked) {
+                        for (let id in HEROES) { 
+                            if (id !== 'hacker' && id !== 'satthandinhle') HEROES[id].unlocked = true;[cite: 1]
+                        }
+                        saveGameData();
+                        alert("Đã mở khóa toàn bộ tướng thường!");
+                    } else { alert("Cần lệnh /???"); }
+                } else {
+                    alert("Lệnh không tồn tại!");
+                }
+                input.value = '';
+                return; 
+            }
+
+            chatBox.innerHTML += `<div><b>${player.name}</b> [${player.roles.join(', ')}]: ${escapeHtml(msg)}</div>`;[cite: 1]
+            input.value = '';
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function redeemGiftcode() {
+            const codeInput = document.getElementById('inputGiftcode').value.trim();
+            if (!codeInput) return alert("Vui lòng nhập mã giftcode!");
+            
+            if (giftcodes.hasOwnProperty(codeInput)) {
+                const rewardRuby = giftcodes[codeInput];
+                player.ruby += rewardRuby;
+                delete giftcodes[codeInput];
+                updateUI();
+                saveGameData();
+                document.getElementById('inputGiftcode').value = '';
+                alert(`🎉 Đổi giftcode thành công! Nhận được ${rewardRuby} Ruby.`);
+            } else {
+                alert("Mã giftcode không tồn tại hoặc đã được sử dụng!");
+            }
+        }
+
+        function escapeHtml(text) { return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+
+        const bgMusic = document.getElementById('bgMusic');
+        let isPlaying = false;
+        function toggleMusic() {
+            const btn = document.getElementById('musicBtn');
+            if (!isPlaying) {
+                bgMusic.volume = 0.5;
+                bgMusic.play().then(() => { isPlaying = true; btn.innerText = "🔊 Nhạc: Bật"; btn.style.background = "#2ed573"; }).catch(() => alert("Lỗi phát nhạc!"));
+            } else { bgMusic.pause(); isPlaying = false; btn.innerText = "🔇 Nhạc: Tắt"; btn.style.background = "#ff4757"; }
+        }
+
+        const STAGES = [];
+        for (let i = 1; i <= 300; i++) {
+            const isBoss = (i % 5 === 0);
+            STAGES.push({
+                id: i, name: isBoss ? `Màn ${i} [BOSS]` : `Màn ${i}`, isBoss,
+                enemyHp: Math.floor((500 + Math.pow(i, 1.5) * 20) * (isBoss ? 2.5 : 1)),
+                spawnRate: Math.min(0.005 + (i * 0.000002), 0.05),
+                enemyAtk: Number(((0.5 + i * 0.05) * (isBoss ? 2 : 1)).toFixed(1)),
+                rewardGold: (150 + i * 20) * (isBoss ? 2 : 1),
+                rewardRuby: (5 + Math.floor(i / 10)) * (isBoss ? 3 : 1)
+            });
+        }
+
+        const HARD_STAGES = [];
+        for (let i = 1; i <= 200; i++) {
+            const isHetefsBoss = (i === 200);
+            HARD_STAGES.push({
+                id: i, 
+                name: isHetefsBoss ? `HARD ${i} [BOSS: HETEFS]` : `Hard Màn ${i}`, 
+                isBoss: isHetefsBoss,
+                isHetefs: isHetefsBoss,
+                enemyHp: Math.floor((2000 + Math.pow(i, 1.8) * 50) * (isHetefsBoss ? 10 : 1.5)),
+                spawnRate: 0.03,
+                enemyAtk: Number(((2 + i * 0.1) * (isHetefsBoss ? 5 : 1)).toFixed(1)),
+                rewardGold: 1000 * i,
+                rewardRuby: 20
+            });
+        }
+
+        const HEROES = {
+            swordsman: { name: "Kiếm Sĩ", unlocked: true, level: 1, baseHp: 100, baseAtk: 10, cost: 30, color: '#0000FF', type: 'melee' },
+            archer: { name: "Cung Thủ", unlocked: false, level: 1, baseHp: 60, baseAtk: 15, cost: 50, color: '#008000', type: 'ranged' },
+            knight: { name: "Hiệp Sĩ", unlocked: false, level: 1, baseHp: 200, baseAtk: 20, cost: 80, color: '#fffa65', type: 'tank' },
+            gojo: { name: "Gojo Satoru", unlocked: false, level: 1, baseHp: 150, baseAtk: 50, cost: 90, color: '#a29bfe', type: 'ranged' },
+            longchimdai: { name: "Long Chim Dài", unlocked: false, level: 1, baseHp: 400, baseAtk: 25, cost: 85, color: '#e17055', type: 'tank' },
+            ducthikff: { name: "Đức Thích FF", unlocked: false, level: 1, baseHp: 180, baseAtk: 45, cost: 75, color: '#ff7f50', type: 'ranged' },
+            satthandinhle: { name: "Sát Thần Đinh Lễ", unlocked: false, level: 1, baseHp: 9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999n, baseAtk: 9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999n, cost: 10, color: '#00cec9', type: 'aoe', isBigInt: true },[cite: 1]
+            khabanh: { name: "Khá Bảnh", unlocked: false, level: 1, baseHp: 450, baseAtk: 80, cost: 110, color: '#d63031', type: 'melee' },
+            huanhoahong: { name: "Huấn Hoa Hồng", unlocked: false, level: 1, baseHp: 500, baseAtk: 95, cost: 130, color: '#e84393', type: 'ranged' },
+            phule: { name: "Phú Lê", unlocked: false, level: 1, baseHp: 650, baseAtk: 110, cost: 150, color: '#2d3436', type: 'tank' },
+            tienbip: { name: "Tiến Bịp", unlocked: false, level: 1, baseHp: 400, baseAtk: 140, cost: 140, color: '#0984e3', type: 'aoe' },
+            truongcon: { name: "Trường Con", unlocked: false, level: 1, baseHp: 550, baseAtk: 125, cost: 145, color: '#6c5ce7', type: 'melee' },
+            thanhlong: { name: "Thanh Long", unlocked: false, level: 1, baseHp: 500, baseAtk: 120, cost: 150, color: '#00b894', type: 'ranged' },
+            bachho: { name: "Bạch Hổ", unlocked: false, level: 1, baseHp: 600, baseAtk: 150, cost: 160, color: '#dfe6e9', type: 'melee' },
+            huyenvu: { name: "Huyền Vũ", unlocked: false, level: 1, baseHp: 1000000, baseAtk: 10, cost: 200, color: '#0984e3', type: 'tank' },
+            satthu: { name: "Sát Thủ", unlocked: false, level: 1, baseHp: 1000, baseAtk: 200, cost: 300, color: '#2f3542', type: 'melee' },
+            matu: { name: "Ma Tu", unlocked: false, level: 1, baseHp: 1000, baseAtk: 300, cost: 400, color: '#7d5fff', type: 'aoe' },
+            tiennhan: { name: "Tiên Nhân", unlocked: false, level: 1, baseHp: 1000, baseAtk: 500, cost: 500, color: '#ffa502', type: 'ranged' },
+            vinhtienle: { name: "Vinh Tiền Lẻ", unlocked: false, level: 1, baseHp: 120, baseAtk: 25, cost: 40, color: '#ff9ff3', type: 'melee' },
+            contiendinh: { name: "Côn Tiền Đình", unlocked: false, level: 1, baseHp: 300, baseAtk: 30, cost: 70, color: '#54a0ff', type: 'tank' },
+            sangtienxu: { name: "Sáng Tiền Xu", unlocked: false, level: 1, baseHp: 140, baseAtk: 35, cost: 60, color: '#55efc4', type: 'ranged' },
+            binhtubi: { name: "Bình Tubi", unlocked: false, level: 1, baseHp: 220, baseAtk: 40, cost: 65, color: '#fab1a0', type: 'aoe' },
+            bacngot: { name: "Bác Ngọt", unlocked: false, level: 1, baseHp: 250, baseAtk: 60, cost: 95, color: '#ffeaa7', type: 'ranged' },
+            hacker: { name: "Hacker", unlocked: false, level: 1, baseHp: 999999999, baseAtk: 999999999, cost: 1000, color: '#000000', type: 'aoe', isBigInt: false }
+        };
+
+        function switchScreen(screenName) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById('screen' + screenName).classList.add('active');
+            updateUI();
+
+            if (screenName === 'Stage') { isPvPMode = false; renderStageList(); }
+            if (screenName === 'Hero') { renderBaseUpgrades(); renderHeroList(); }
+            if (screenName === 'Guild') renderGuild();
+            if (screenName === 'WorldBoss') updateBossUI();
+            if (screenName === 'Game') startGame();
+        }
+
+        function renderGuild() {
+            const box = document.getElementById('guild-info-box');
+            if (!player.guild) {
+                box.innerHTML = `<p>Bạn chưa gia nhập bang hội.</p><input type="text" id="input-guild-name" placeholder="Tên bang..." style="padding:10px; width:60%; background:#222; color:#fff; border:1px solid #555;"><br><br><button class="nav-btn" onclick="createGuild()">Tạo Bang (500🪙)</button>`;
+            } else {
+                box.innerHTML = `<div style="background:#333; padding:20px; border-radius:8px;"><h3 style="color:#3742fa;">Bang: ${player.guild.name}</h3><button class="nav-btn btn-red" onclick="leaveGuild()">Rời Bang</button></div>`;
+            }
+        }
+        function createGuild() {
+            const gName = document.getElementById('input-guild-name').value.trim();
+            if (!gName || player.gold < 500) return alert('Thiếu tên hoặc không đủ vàng!');
+            player.gold -= 500; player.guild = { name: gName, master: player.name, members: 1, level: 1 };
+            updateUI(); renderGuild(); saveGameData();
+        }
+        function leaveGuild() { player.guild = null; renderGuild(); saveGameData(); }
+
+        function createPvPRoom() {
+            pvpRoomCode = Math.floor(1000 + Math.random() * 9000).toString();
+            document.getElementById('pvp-log').innerHTML = `[Phòng PvP]: Đã tạo phòng mã <b>${pvpRoomCode}</b> thành công! Đang chờ người chơi khác...<br>`;
+        }
+
+        function joinPvPRoom() {
+            const code = document.getElementById('inputRoomCode').value.trim();
+            if (!code) return alert("Vui lòng nhập mã phòng!");
+            pvpRoomCode = code;
+            document.getElementById('pvp-log').innerHTML = `[Phòng PvP]: Đã kết nối vào phòng mã <b>${code}</b>.<br>`;
+        }
+
+        let bossMaxHp = 1000000000;
+        let bossCurrentHp = 1000000000;
+        function updateBossUI() {
+            document.getElementById('boss-hp').innerText = `${bossCurrentHp.toLocaleString()} / ${bossMaxHp.toLocaleString()}`;
+            document.getElementById('boss-hp-bar').value = (bossCurrentHp / bossMaxHp) * 100;
+        }
+        function attackWorldBoss() {
+            const damage = Math.max(1, Math.floor(player.power * 0.1));
+            bossCurrentHp -= damage;
+            if (bossCurrentHp <= 0) { bossCurrentHp = bossMaxHp; player.ruby += 100; updateUI(); alert("Tiêu diệt Boss Thế Giới! Nhận 100 Ruby!"); }
+            updateBossUI(); saveGameData();
+            document.getElementById('boss-log').innerHTML = `Gây ${damage.toLocaleString()} sát thương lên Boss!<br>` + document.getElementById('boss-log').innerHTML;
+        }
+
+        function renderBaseUpgrades() {
+            const container = document.getElementById('baseUpgradeList');
+            container.innerHTML = `
+                <div class="card"><h3>Tốc Độ Khoáng</h3><p>Cấp: ${player.manaSpeedLvl}</p><button class="nav-btn" onclick="upgradeManaSpeed()">Nâng cấp (${player.manaSpeedLvl * 150}🪙)</button></div>
+                <div class="card"><h3>Giới Hạn Khoáng</h3><p>Cấp: ${player.maxManaLimitLvl}</p><button class="nav-btn" onclick="upgradeMaxMana()">Nâng cấp (${player.maxManaLimitLvl * 200}🪙)</button></div>
+                <div class="card"><h3>Máu Căn Cứ</h3><p>Cấp: ${player.baseHPBoostLvl}</p><button class="nav-btn" onclick="upgradeBaseHP()">Nâng cấp (${player.baseHPBoostLvl * 150}🪙)</button></div>
+            `;
+        }
+        function upgradeManaSpeed() { const c = player.manaSpeedLvl * 150; if (player.gold >= c) { player.gold -= c; player.manaSpeedLvl++; updateUI(); renderBaseUpgrades(); saveGameData(); } else alert("Thiếu vàng!"); }
+        function upgradeMaxMana() { const c = player.maxManaLimitLvl * 200; if (player.gold >= c) { player.gold -= c; player.maxManaLimitLvl++; updateUI(); renderBaseUpgrades(); saveGameData(); } else alert("Thiếu vàng!"); }
+        function upgradeBaseHP() { const c = player.baseHPBoostLvl * 150; if (player.gold >= c) { player.gold -= c; player.baseHPBoostLvl++; updateUI(); renderBaseUpgrades(); saveGameData(); } else alert("Thiếu vàng!"); }
+
+        function renderStageList() {
+            const container = document.getElementById('stageList');
+            container.innerHTML = '';
+
+            let modeSwitchHtml = `
+                <div style="grid-column: 1 / -1; margin-bottom: 10px;">
+                    <button class="nav-btn ${!player.isHardModeActive ? 'btn-red' : ''}" onclick="toggleGameMode(false)">🗺️ Màn Thường (1-300)</button>
+                    <button class="nav-btn ${player.isHardModeActive ? 'btn-red' : ''}" onclick="toggleGameMode(true)">🔥 Hard Mode (200 Màn)</button>
+                </div>
+            `;
+            container.innerHTML += modeSwitchHtml;
+
+            if (!player.isHardModeActive) {
+                STAGES.forEach((stg) => {
+                    let isUnlocked = false;
+                    if (stg.id <= 200) {
+                        isUnlocked = stg.id <= player.maxStageUnlocked;
+                    } else {
+                        isUnlocked = player.hardModeCompleted && (stg.id <= player.maxStageUnlocked);
+                    }
+
+                    const card = document.createElement('div');
+                    card.className = `card ${stg.isBoss ? 'boss-stage' : ''} ${isUnlocked ? '' : 'locked'}`;
+                    
+                    let lockReasonText = '🔒';
+                    if (!player.hardModeCompleted && stg.id >= 201) {
+                        lockReasonText = '🔒 Cần diệt Hetefs Hard';
+                    }
+
+                    card.innerHTML = `
+                        <h3>${stg.name}</h3>
+                        <p>HP: ${stg.enemyHp.toLocaleString()}</p>
+                        <button class="nav-btn ${isUnlocked ? '' : 'btn-locked'}" ${isUnlocked ? `onclick="selectStage(${stg.id}, false)"` : 'disabled'}>
+                            ${isUnlocked ? 'Vào Trận' : lockReasonText}
+                        </button>`;
+                    container.appendChild(card);
+                });
+            } else {
+                HARD_STAGES.forEach((stg) => {
+                    const isUnlocked = stg.id <= player.maxHardStageUnlocked;
+                    const card = document.createElement('div');
+                    card.className = `card ${stg.isHetefs ? 'boss-stage' : ''} ${isUnlocked ? '' : 'locked'}`;
+                    card.innerHTML = `
+                        <h3>${stg.name}</h3>
+                        <p>HP: ${stg.enemyHp.toLocaleString()}</p>
+                        <button class="nav-btn ${isUnlocked ? '' : 'btn-locked'}" ${isUnlocked ? `onclick="selectStage(${stg.id}, true)"` : 'disabled'}>
+                            ${isUnlocked ? 'Vào Hard' : '🔒'}
+                        </button>`;
+                    container.appendChild(card);
+                });
+            }
+        }
+
+        function toggleGameMode(isHard) {
+            player.isHardModeActive = isHard;
+            renderStageList();
+        }
+
+        function selectStage(stageId, isHard) {
+            currentSelectedStage = stageId;
+            isPlayingHardMode = isHard;
+            isPvPMode = false;
+            switchScreen('Game');
+        }
+
+        function renderHeroList() {
+            const container = document.getElementById('heroList');
+            container.innerHTML = '';
+            for (let id in HEROES) {
+                const hero = HEROES[id];
+                const card = document.createElement('div');
+                card.className = `card ${hero.unlocked ? '' : 'locked'}`;
+                
+                let displayHpText = "";
+                if (hero.isBigInt) {
+                    displayHpText = "999999999+";
+                } else {
+                    let displayHp = hero.baseHp + (hero.level - 1) * 20;
+                    displayHpText = displayHp.toLocaleString();
+                }
+
+                card.innerHTML = `
+                    <h3>${hero.name}</h3>
+                    <p>Cấp: ${hero.level.toLocaleString()}</p>
+                    <p>Máu: ${displayHpText}</p>
+                    ${hero.unlocked ? 
+                        `<button class="nav-btn" onclick="upgradeHero('${id}')">Nâng cấp (${hero.level * 100}🪙)</button>` : 
+                        `<p style="color:#ff4757">${(id === 'hacker' || id === 'satthandinhle') ? 'Dành riêng cho Admin' : 'Chưa sở hữu'}</p>`
+                    }
+                `;
+                container.appendChild(card);
+            }
+        }
+        function upgradeHero(id) {
+            const h = HEROES[id], c = h.level * 100;
+            if (player.gold >= c) { player.gold -= c; h.level++; player.power += 5; updateUI(); renderHeroList(); saveGameData(); } else alert("Thiếu vàng!");
+        }
+
+        function rollGacha() {
+            if (player.ruby < 50) return alert("Cần 50 Ruby!");
+            player.ruby -= 50; updateUI();
+            const keys = Object.keys(HEROES).filter(k => k !== 'hacker' && k !== 'satthandinhle');
+            const hero = HEROES[keys[Math.floor(Math.random() * keys.length)]];
+            if (!hero.unlocked) { hero.unlocked = true; document.getElementById('gachaResult').innerHTML = `🎉 Nhận tướng: ${hero.name}!`; }
+            else { player.gold += 200; document.getElementById('gachaResult').innerHTML = `♻️ Trùng tướng, nhận 200 Vàng!`; }
+            saveGameData();
+        }
+
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        let manaInterval, isGaming = false;
+        let mana = 30, maxMana = 100, playerBaseHP = 1000, maxPlayerBaseHP = 1000, enemyBaseHP = 1000;
+        let playerUnits = [], enemyUnits = [];
+        let activeStageConfig;
+        let bossSpawned = false;
+
+        function startGame() {
+            isGaming = true; bossSpawned = false;
+            if (isPvPMode) {
+                activeStageConfig = { name: `PvP 1v1 vs ${pvpOpponentName}`, isBoss: false, enemyHp: 1200, spawnRate: 0.015, enemyAtk: 1.2, rewardGold: 500, rewardRuby: 40 };
+                document.getElementById('currentStageTitle').innerText = `Đấu Trường Trực Tiếp: ${player.name} vs ${pvpOpponentName}`;
+            } else {
+                if (isPlayingHardMode) {
+                    activeStageConfig = HARD_STAGES.find(s => s.id === currentSelectedStage);
+                    document.getElementById('currentStageTitle').innerText = `[HARD MODE] ${activeStageConfig.name}`;
+                } else {
+                    activeStageConfig = STAGES.find(s => s.id === currentSelectedStage);
+                    document.getElementById('currentStageTitle').innerText = activeStageConfig.name;
+                }
+            }
+
+            maxPlayerBaseHP = 1000 + (player.baseHPBoostLvl - 1) * 300;
+            playerBaseHP = maxPlayerBaseHP;
+            maxMana = 100 + (player.maxManaLimitLvl - 1) * 50;
+            mana = 30; enemyBaseHP = activeStageConfig.enemyHp;
+            playerUnits = []; enemyUnits = [];
+
+            const spawnContainer = document.getElementById('spawnButtons');
+            spawnContainer.innerHTML = '';
+            for (let id in HEROES) {
+                if (HEROES[id].unlocked) {
+                    const btn = document.createElement('button');
+                    btn.className = 'nav-btn';
+                    btn.innerText = `Gọi ${HEROES[id].name} (${HEROES[id].cost} Mana)`;
+                    btn.onclick = () => spawnPlayerUnit(id);
+                    spawnContainer.appendChild(btn);
+                }
+            }
+
+            clearInterval(manaInterval);
+            manaInterval = setInterval(() => { 
+                const recoveryRate = 1.5 + (player.manaSpeedLvl * 0.5);
+                if (mana < maxMana) mana = Math.min(maxMana, mana + recoveryRate); 
+            }, 500);
+
+            gameLoop();
+        }
+
+        function spawnPlayerUnit(type) {
+            // Giới hạn tối đa 5 nhân vật trên sân trận đấu
+            if (playerUnits.length >= 5) {
+                alert("Đã đạt giới hạn tối đa 5 nhân vật xuất trận cùng lúc![cite: 1]");
+                return;
+            }
+
+            const h = HEROES[type];
+            if (mana >= h.cost) {
+                mana -= h.cost;
+                if (h.isBigInt) {
+                    playerUnits.push({ 
+                        type: h.type, name: h.name, 
+                        hp: h.baseHp, maxHp: h.baseHp, damage: h.baseAtk, 
+                        range: 300, speed: 2.0, color: h.color, x: 50, y: 220, size: 28, isBigInt: true 
+                    });
+                } else {
+                    let unitHp = h.baseHp + (h.level - 1) * 20;
+                    let unitDamage = (h.baseAtk + (h.level - 1) * 5) / 10;
+                    playerUnits.push({ 
+                        type: h.type, name: h.name, 
+                        hp: unitHp, maxHp: unitHp, damage: unitDamage, 
+                        range: h.type === 'ranged' ? 150 : 30, speed: 1.2, color: h.color, x: 50, y: 220, size: 22, isBigInt: false 
+                    });
+                }
+            } else {
+                alert("Không đủ Mana để triệu hồi!");
+            }
+        }
+
+        function gameLoop() {
+            if (!isGaming) return;
+            if (!isPvPMode && activeStageConfig.isBoss && !bossSpawned) {
+                bossSpawned = true;
+                enemyUnits.push({ isBoss: true, hp: activeStageConfig.enemyHp, maxHp: activeStageConfig.enemyHp, damage: activeStageConfig.enemyAtk, range: 35, speed: 0.5, color: '#8e44ad', x: 740, y: 200, size: 40, isBigInt: false });
+            }
+
+            if (!activeStageConfig.isBoss && Math.random() < activeStageConfig.spawnRate) {
+                enemyUnits.push({ hp: 100, maxHp: 100, damage: activeStageConfig.enemyAtk, range: 20, speed: 0.8, color: isPvPMode ? '#ff4757' : '#FF0000', x: 750, y: 220, size: 20, isBigInt: false });
+            }
+
+            playerUnits.forEach((u, i) => {
+                let target = enemyUnits.find(e => e.x - u.x <= u.range && e.x > u.x);
+                if (target) {
+                    if (u.isBigInt) {
+                        target.hp = 0; 
+                    } else {
+                        target.hp -= u.damage;
+                    }
+                } else if (u.x < 730) {
+                    u.x += u.speed;
+                } else {
+                    if (u.isBigInt) {
+                        enemyBaseHP = 0;
+                    } else {
+                        enemyBaseHP -= u.damage;
+                    }
+                }
+                if (u.hp <= 0) playerUnits.splice(i, 1);
+            });
+
+            enemyUnits = enemyUnits.filter(u => u.hp > 0);
+
+            enemyUnits.forEach((u, i) => {
+                let target = playerUnits.find(p => u.x - p.x <= u.range && p.x < u.x);
+                if (target) { 
+                    if (!target.isBigInt) target.hp -= u.damage; 
+                } else if (u.x > 70) {
+                    u.x -= u.speed;
+                } else {
+                    playerBaseHP -= u.damage;
+                }
+                if (u.hp <= 0) enemyUnits.splice(i, 1);
+            });
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#8B4513"; ctx.fillRect(0, 240, 800, 60);
+            ctx.fillStyle = "#4169E1"; ctx.fillRect(10, 140, 50, 100);
+            ctx.fillStyle = isPvPMode ? "#ff4757" : "#CD5C5C"; ctx.fillRect(740, 140, 50, 100);
+            ctx.fillStyle = "#fff";
+            ctx.fillText(`HP: ${Math.max(0, Math.floor(playerBaseHP))}/${maxPlayerBaseHP}`, 10, 130);
+            ctx.fillText(`HP: ${Math.max(0, Math.floor(enemyBaseHP))}`, 740, 130);
+            document.getElementById("manaText").innerText = Math.floor(mana);
+            document.getElementById("maxManaText").innerText = maxMana;
+            document.getElementById("unitCountText").innerText = playerUnits.length; // Cập nhật số lượng tướng đang gọi lên UI
+
+            [...playerUnits, ...enemyUnits].forEach(u => {
+                ctx.fillStyle = u.color;
+                ctx.fillRect(u.x, u.y, u.size, u.size);
+                ctx.fillStyle = 'red'; ctx.fillRect(u.x, u.y - 8, u.size, 4);
+                ctx.fillStyle = 'green'; 
+                let hpPercent = 1;
+                if (!u.isBigInt) {
+                    hpPercent = (u.hp / u.maxHp);
+                    if (isNaN(hpPercent) || hpPercent > 1) hpPercent = 1;
+                }
+                ctx.fillRect(u.x, u.y - 8, hpPercent * u.size, 4);
+            });
+
+            if (playerBaseHP <= 0 || enemyBaseHP <= 0) { endGame(playerBaseHP > 0); }
+            else { requestAnimationFrame(gameLoop); }
+        }
+
+        function endGame(isWin) {
+            isGaming = false;
+            clearInterval(manaInterval);
+            if (isWin) {
+                player.gold += activeStageConfig.rewardGold;
+                player.ruby += activeStageConfig.rewardRuby;
+                player.power += 2;
+
+                if (!isPvPMode) {
+                    if (isPlayingHardMode) {
+                        if (currentSelectedStage === player.maxHardStageUnlocked && player.maxHardStageUnlocked < 200) {
+                            player.maxHardStageUnlocked++;
+                        }
+                        if (currentSelectedStage === 200) {
+                            player.hardModeCompleted = true;
+                            player.maxStageUnlocked = Math.max(player.maxStageUnlocked, 201);
+                            alert("👑 CHÚC MỪNG! Bạn đã tiêu diệt HETEFS ở Hard Mode và mở khóa khu vực màn 201 - 300!");
+                        }
+                    } else {
+                        if (currentSelectedStage === player.maxStageUnlocked && player.maxStageUnlocked < 300) {
+                            player.maxStageUnlocked++;
+                        }
+                    }
+                }
+                updateUI(); saveGameData();
+                alert(`🎉 CHIẾN THẮNG TRẬN ĐẤU!\nNhận: ${activeStageConfig.rewardGold} Vàng & ${activeStageConfig.rewardRuby} Ruby.`);
+            } else { alert("💀 THẤT BẠI TRONG TRẬN CHIẾN!"); }
+
+            if (isPvPMode) switchScreen('PvP');
+            else switchScreen('Stage');
+        }
+    </script>
+</body>
+</html>
